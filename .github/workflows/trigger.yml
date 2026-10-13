@@ -8,6 +8,9 @@ name: trigger-compiti
 # Perché non la schedule dentro il repo privato: su repo privati con piano Free
 # l'evento schedule ha la priorita' piu' bassa della coda condivisa e arriva con
 # ore di ritardo o non arriva. Su un repo pubblico non succede.
+#
+# --ref main e' obbligatorio: gh cerca di leggere il default branch via GraphQL,
+# che una PAT fine-grained non puo' leggere.
 
 on:
   schedule:
@@ -65,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "dispatch con args: $ARGS"
-          gh workflow run compiti.yml -R BoniniFilippoMaria/regRender -f args="$ARGS"
+          gh workflow run compiti.yml -R BoniniFilippoMaria/regRender --ref main -f args="$ARGS"
           echo "attendo 90 secondi per vedere l'esito..."
           sleep 90
           gh run list -R BoniniFilippoMaria/regRender --workflow compiti.yml --limit 1 \
