@@ -1,15 +1,32 @@
 name: trigger-compiti
 
-# Solo dispatch manuale: lo schedule GitHub non è affidabile su questo account.
-# L'automazione vera gira via crontab sul server SSH (Europe/Rome).
+# Solo un orologio: nessun codice, nessuna esecuzione vera. Alla cron giusta
+# (ora italiana, DST gestito da GitHub) spara una workflow_dispatch al repo
+# privato BoniniFilippoMaria/regRender, che e' quello che fa il lavoro.
+#
+# Perché non la schedule dentro il repo privato: su repo privati con piano Free
+# l'evento schedule ha la priorita' piu' bassa della coda condivisa e arriva
+# con ore di ritardo o non arriva. Su un repo pubblico ha priorita' normale.
+#
+# --ref main e' obbligatorio: gh cerca di leggere il default branch via GraphQL,
+# che una PAT fine-grained non puo' leggere.
 
 on:
+  schedule:
+    - cron: "7 14 * * 1-4"
+      timezone: Europe/Rome
+    - cron: "37 16 * * 1-4"
+      timezone: Europe/Rome
+    - cron: "7 17 * * 5"
+      timezone: Europe/Rome
+    - cron: "7 12 * * 0,6"
+      timezone: Europe/Rome
   workflow_dispatch:
     inputs:
       args:
-        description: "Argomenti per compiti.yml (default: --send-to 4ai --send)"
+        description: "Argomenti per compiti.yml"
         required: false
-        default: "--send-to 4ai --send"
+        default: ""
 
 concurrency:
   group: trigger-compiti
@@ -21,11 +38,32 @@ jobs:
   spara:
     runs-on: ubuntu-latest
     steps:
+      - name: Scegli lo slot
+        id: slot
+        shell: bash
+        env:
+          SCHED: ${{ github.event.schedule }}
+          INPUT_ARGS: ${{ inputs.args }}
+        run: |
+          set -euo pipefail
+          case "$SCHED" in
+            "7 14 * * 1-4")  args="--send" ;;
+            "37 16 * * 1-4") args="--send --second" ;;
+            "7 17 * * 5")    args="--send --weekend" ;;
+            "7 12 * * 0,6")  args="--send --weekend --second" ;;
+            *)               args="" ;;
+          esac
+          if [ -n "$INPUT_ARGS" ]; then
+            args="$INPUT_ARGS"
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+          echo "schedule='$SCHED' -> args='$args'"
+
       - name: Avvia la run sul repo privato
-        if: inputs.args != ""
+        if: steps.slot.outputs.args != ''
         env:
           GH_TOKEN: ${{ secrets.REG_PAT }}
-          ARGS: ${{ inputs.args }}
+          ARGS: ${{ steps.slot.outputs.args }}
         run: |
           set -euo pipefail
           echo "dispatch con args: $ARGS"
@@ -34,5 +72,4 @@ jobs:
           sleep 90
           gh run list -R BoniniFilippoMaria/regRender --workflow compiti.yml --limit 1 \
             --json databaseId,status,conclusion,createdAt,url \
-            --jq '"'"'.[0] | "run \(.databaseId)  \(.status)/\(.conclusion // "-")  \(.url)"'"'"'
-          echo "azioni del repo privato: https://github.com/BoniniFilippoMaria/regRender/actions"
+            --jq '.[0] | "run \(.databaseId)  \(.status)/\(.conclusion // "-")  \(.url)"'
