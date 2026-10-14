@@ -1,0 +1,11 @@
+name: probe-tz
+on:
+  schedule:
+    - cron: "31 15 * * *"
+      timezone: Europe/Rome
+permissions: {}
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "PROVA TZ OK $(date -u +%FT%TZ)"

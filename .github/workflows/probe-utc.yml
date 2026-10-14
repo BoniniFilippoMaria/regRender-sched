@@ -1,0 +1,10 @@
+name: probe-utc
+on:
+  schedule:
+    - cron: "23 13 * * *"
+permissions: {}
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "PROVA UTC OK $(date -u +%FT%TZ)"
