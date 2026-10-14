@@ -1,60 +1,25 @@
 name: trigger-compiti
-
 on:
-  schedule:
-    - cron: "7 12 * * 1-4"
-    - cron: "37 14 * * 1-4"
-    - cron: "7 15 * * 5"
-    - cron: "7 10 * * 0,6"
   workflow_dispatch:
     inputs:
       args:
-        description: "Argomenti per compiti.yml"
+        description: 'Argomenti da passare a compiti.yml'
         required: false
-        default: ""
-
+        default: '--send'
+permissions: {}
 concurrency:
   group: trigger-compiti
-  cancel-in-progress: false
-
-permissions: {}
-
 jobs:
-  spara:
+  dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Scegli lo slot
-        id: slot
-        shell: bash
-        env:
-          SCHED: ${{ github.event.schedule }}
-          INPUT_ARGS: ${{ inputs.args }}
-        run: |
-          set -euo pipefail
-          case "$SCHED" in
-            "7 12 * * 1-4")  args="--send" ;;
-            "37 14 * * 1-4") args="--send --second" ;;
-            "7 15 * * 5")    args="--send --weekend" ;;
-            "7 10 * * 0,6")  args="--send --weekend --second" ;;
-            *)               args="" ;;
-          esac
-          if [ -n "$INPUT_ARGS" ]; then
-            args="$INPUT_ARGS"
-          fi
-          echo "args=$args" >> "$GITHUB_OUTPUT"
-          echo "schedule='$SCHED' -> args='$args'"
-
-      - name: Avvia la run sul repo privato
-        if: steps.slot.outputs.args != ''
+      - name: Trigger compiti
         env:
           GH_TOKEN: ${{ secrets.REG_PAT }}
-          ARGS: ${{ steps.slot.outputs.args }}
+          ARGS: ${{ github.event.inputs.args }}
         run: |
-          set -euo pipefail
-          echo "dispatch con args: $ARGS"
-          gh workflow run compiti.yml -R BoniniFilippoMaria/regRender --ref main -f args="$ARGS"
-          echo "attendo 90 secondi per vedere l'esito..."
-          sleep 90
-          gh run list -R BoniniFilippoMaria/regRender --workflow compiti.yml --limit 1 \
-            --json databaseId,status,conclusion,createdAt,url \
-            --jq '.[0] | "run \(.databaseId)  \(.status)/\(.conclusion // "-")  \(.url)"'
+          echo "Dispatching compiti.yml with args: $ARGS"
+          gh workflow run compiti.yml \
+            -R BoniniFilippoMaria/regRender \
+            --ref main \
+            -f args="$ARGS"
