@@ -1,7 +1,7 @@
 name: probe-tz
 on:
   schedule:
-    - cron: "31 15 * * *"
+    - cron: "57 15 * * *"
       timezone: Europe/Rome
 permissions: {}
 jobs:
